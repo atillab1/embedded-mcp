@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal CMSIS-SVD snippet for tests: RCC->CR of an STM32-like device. -->
+<device>
+  <name>SAMPLE</name>
+  <peripherals>
+    <peripheral>
+      <name>RCC</name>
+      <registers>
+        <register>
+          <name>CR</name>
+          <fields>
+            <field>
+              <name>HSION</name>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>HSEON</name>
+              <bitOffset>16</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>PLLON</name>
+              <bitOffset>24</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>HSITRIM</name>
+              <bitRange>[7:3]</bitRange>
+            </field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+  </peripherals>
+</device>

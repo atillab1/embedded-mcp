@@ -19,6 +19,7 @@ Nothing here is magic. Every tool is a thin, well-documented wrapper around
 from __future__ import annotations
 
 import time
+import xml.etree.ElementTree as ET
 from typing import Any
 
 import serial
@@ -175,6 +176,77 @@ def decode_register(value: int, fields: list[dict[str, Any]], width: int = 32) -
         "width": width,
         "fields": decoded,
     }
+
+
+def _svd_fields(svd_path: str, peripheral: str, register: str) -> list[dict[str, Any]]:
+    """Pull a register's bit-fields out of a CMSIS-SVD file.
+
+    SVD is the XML chip-description format vendors ship (ST, Nordic, etc.). Each
+    field has a name and a position given either as bitOffset+bitWidth or as a
+    bitRange like "[5:2]". We normalise both to {name, msb, lsb}.
+    """
+    root = ET.parse(svd_path).getroot()
+
+    def _find(parent, tag, name):
+        for el in parent.iter(tag):
+            n = el.findtext("name")
+            if n and n.upper() == name.upper():
+                return el
+        return None
+
+    periph = _find(root, "peripheral", peripheral)
+    if periph is None:
+        raise ValueError(f"peripheral '{peripheral}' not found in {svd_path}")
+    reg = _find(periph, "register", register)
+    if reg is None:
+        raise ValueError(f"register '{register}' not found in peripheral '{peripheral}'")
+
+    fields: list[dict[str, Any]] = []
+    for f in reg.iter("field"):
+        name = f.findtext("name") or "?"
+        off = f.findtext("bitOffset")
+        wid = f.findtext("bitWidth")
+        rng = f.findtext("bitRange")
+        if off is not None and wid is not None:
+            lsb = int(off)
+            msb = lsb + int(wid) - 1
+        elif rng:  # form: "[msb:lsb]"
+            msb, lsb = (int(x) for x in rng.strip("[]").split(":"))
+        else:
+            continue
+        fields.append({"name": name, "msb": msb, "lsb": lsb})
+    return fields
+
+
+@mcp.tool()
+def decode_register_svd(
+    value: int, svd_path: str, peripheral: str, register: str, width: int = 32
+) -> dict[str, Any]:
+    """Decode a register by *name* using a CMSIS-SVD chip description file.
+
+    Instead of typing out the bit map by hand (as `decode_register` needs), point
+    this at the vendor's `.svd` file and name the peripheral + register. It reads
+    the real bit-fields from the SVD and decodes your value against them.
+
+    Example:
+        decode_register_svd(0x4002, "STM32F407.svd", "RCC", "CR")
+
+    Args:
+        value: The raw register value you read back.
+        svd_path: Path to a CMSIS-SVD file on this machine.
+        peripheral: Peripheral name as in the SVD, e.g. "RCC".
+        register: Register name as in the SVD, e.g. "CR".
+        width: Register width in bits for display (default 32).
+    """
+    try:
+        fields = _svd_fields(svd_path, peripheral, register)
+    except (ValueError, ET.ParseError, FileNotFoundError) as exc:
+        return {"ok": False, "error": str(exc)}
+    out = decode_register(value, fields, width)
+    out["ok"] = True
+    out["peripheral"] = peripheral
+    out["register"] = register
+    return out
 
 
 def main() -> None:

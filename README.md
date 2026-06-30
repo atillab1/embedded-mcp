@@ -36,6 +36,7 @@ it eyes and hands on the hardware.** This server is those eyes and hands.
 | `read_serial` | Passively read what the firmware is printing for *N* seconds. |
 | `send_command` | Send a line to the device's UART shell and capture the reply. |
 | `decode_register` | Turn a raw value (e.g. `0x4002`) into named bit-fields. |
+| `decode_register_svd` | Decode a register *by name* straight from a vendor CMSIS-SVD file. |
 
 ## Install
 
@@ -83,6 +84,14 @@ Restart Claude Desktop. Then just ask:
 }
 ```
 
+## Try it now (no hardware needed)
+
+The register decoders work entirely offline — give them a quick spin:
+
+```bash
+python examples/demo.py
+```
+
 ## Safety notes
 
 - Tools open the port only for the duration of the call, then close it — they do
@@ -94,8 +103,8 @@ Restart Claude Desktop. Then just ask:
 ## Roadmap
 
 - [x] Unit tests + GitHub Actions CI
+- [x] Load a register map from an SVD file (`decode_register_svd`)
 - [ ] Streaming/continuous monitor (notifications instead of fixed windows)
-- [ ] Load a register map from an SVD file so `decode_register` needs no manual fields
 - [ ] Optional flashing hook (`st-flash` / `openocd`)
 
 Contributions welcome — open an issue or PR.
