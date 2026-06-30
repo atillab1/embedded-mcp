@@ -2,6 +2,7 @@
 
 > Let an AI assistant read, command, and debug your microcontroller — over plain serial.
 
+[![CI](https://github.com/atillab1/embedded-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/atillab1/embedded-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-7c3aed.svg)](https://modelcontextprotocol.io/)
