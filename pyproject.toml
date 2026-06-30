@@ -1,0 +1,34 @@
+[project]
+name = "embedded-mcp"
+version = "0.1.0"
+description = "An MCP server that lets an AI assistant read, command and debug your microcontroller over serial."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Atilla", email = "atillabasut5091@gmail.com" }]
+keywords = ["mcp", "embedded", "firmware", "serial", "uart", "stm32", "microcontroller", "ai", "claude"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Embedded Systems",
+]
+dependencies = [
+    "mcp>=1.2.0",
+    "pyserial>=3.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/atillab1/embedded-mcp"
+Issues = "https://github.com/atillab1/embedded-mcp/issues"
+
+[project.scripts]
+embedded-mcp = "embedded_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/embedded_mcp"]
