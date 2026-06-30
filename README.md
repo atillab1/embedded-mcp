@@ -37,6 +37,8 @@ it eyes and hands on the hardware.** This server is those eyes and hands.
 | `send_command` | Send a line to the device's UART shell and capture the reply. |
 | `decode_register` | Turn a raw value (e.g. `0x4002`) into named bit-fields. |
 | `decode_register_svd` | Decode a register *by name* straight from a vendor CMSIS-SVD file. |
+| `list_flashers` | Report which flashers are installed (st-flash / probe-rs / openocd). |
+| `flash_firmware` | Flash a firmware image to the board (dry-run by default). |
 
 ## Install
 
@@ -92,11 +94,24 @@ The register decoders work entirely offline — give them a quick spin:
 python examples/demo.py
 ```
 
+## Flashing
+
+`flash_firmware` shells out to a real flasher and is **dry-run by default** — it
+returns the exact command it *would* run, so you can review it before anything
+touches your board:
+
+> *"Dry-run flashing build/app.bin to my STM32 with st-flash."*
+
+Flip `dry_run=False` to actually flash. Supported: `st-flash` (.bin),
+`probe-rs` (.elf, needs `chip`), `openocd` (.elf, needs `openocd_target`).
+
 ## Safety notes
 
 - Tools open the port only for the duration of the call, then close it — they do
   not hold the port, so your normal IDE serial monitor can share it (one at a time).
 - Read durations are capped at 30s so a call can never hang the client.
+- `flash_firmware` is destructive; it defaults to a dry run and never flashes
+  unless you explicitly pass `dry_run=False`.
 - This talks to whatever board is on the port. Don't point it at something you
   don't own.
 
@@ -104,8 +119,9 @@ python examples/demo.py
 
 - [x] Unit tests + GitHub Actions CI
 - [x] Load a register map from an SVD file (`decode_register_svd`)
+- [x] Flashing hook (`flash_firmware` via st-flash / probe-rs / openocd)
 - [ ] Streaming/continuous monitor (notifications instead of fixed windows)
-- [ ] Optional flashing hook (`st-flash` / `openocd`)
+- [ ] SVD auto-discovery from the connected chip id
 
 Contributions welcome — open an issue or PR.
 

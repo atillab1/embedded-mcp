@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- `list_flashers` — report installed flashers (st-flash / probe-rs / openocd).
+- `flash_firmware` — flash a firmware image, dry-run by default for safety.
+
 ## [0.1.0] - 2026-06-30
 
 ### Added

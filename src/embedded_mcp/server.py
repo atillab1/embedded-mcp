@@ -18,6 +18,9 @@ Nothing here is magic. Every tool is a thin, well-documented wrapper around
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 import time
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -247,6 +250,131 @@ def decode_register_svd(
     out["peripheral"] = peripheral
     out["register"] = register
     return out
+
+
+# --- Flashing ------------------------------------------------------------------
+# Supported flashers, in the order auto-detection prefers them.
+FLASHERS = ("st-flash", "probe-rs", "openocd")
+
+
+def _detect_flashers() -> list[str]:
+    """Return the flasher tools that are actually installed (on PATH)."""
+    return [t for t in FLASHERS if shutil.which(t)]
+
+
+def _build_flash_command(
+    tool: str,
+    firmware_path: str,
+    address: str = "0x08000000",
+    chip: str | None = None,
+    openocd_target: str | None = None,
+) -> list[str]:
+    """Build the argv for a flash command. Pure logic — easy to unit-test.
+
+    Kept separate from the actual subprocess call so we can verify exactly what
+    would run (and so `dry_run` can return it) without touching hardware.
+    """
+    if tool == "st-flash":
+        # st-flash writes a raw .bin at a flash address (default = STM32 0x08000000).
+        return ["st-flash", "write", firmware_path, address]
+    if tool == "probe-rs":
+        cmd = ["probe-rs", "download"]
+        if chip:
+            cmd += ["--chip", chip]
+        cmd.append(firmware_path)
+        return cmd
+    if tool == "openocd":
+        if not openocd_target:
+            raise ValueError(
+                "openocd needs `openocd_target`, e.g. 'target/stm32f4x.cfg'"
+            )
+        return [
+            "openocd",
+            "-f", "interface/stlink.cfg",
+            "-f", openocd_target,
+            "-c", f"program {firmware_path} verify reset exit",
+        ]
+    raise ValueError(f"unknown flasher tool: {tool!r} (use one of {FLASHERS})")
+
+
+@mcp.tool()
+def list_flashers() -> dict[str, Any]:
+    """Report which firmware-flashing tools are installed on this machine.
+
+    Call this before `flash_firmware` to see what's available
+    (st-flash, probe-rs, openocd).
+    """
+    return {"available": _detect_flashers(), "checked": list(FLASHERS)}
+
+
+@mcp.tool()
+def flash_firmware(
+    firmware_path: str,
+    tool: str = "auto",
+    address: str = "0x08000000",
+    chip: str | None = None,
+    openocd_target: str | None = None,
+    dry_run: bool = True,
+    timeout_seconds: float = 60.0,
+) -> dict[str, Any]:
+    """Flash a firmware image onto the connected board.
+
+    DESTRUCTIVE: this overwrites the flash of whatever board is connected. For
+    safety it defaults to `dry_run=True`, which only *returns the exact command*
+    it would run without executing it. Set `dry_run=False` to actually flash.
+
+    Args:
+        firmware_path: Path to the firmware (.bin for st-flash; .elf for probe-rs/openocd).
+        tool: "auto" (pick the first installed) or "st-flash" / "probe-rs" / "openocd".
+        address: Flash address for st-flash (default STM32 0x08000000).
+        chip: Chip name for probe-rs, e.g. "STM32F407VG".
+        openocd_target: OpenOCD target cfg, e.g. "target/stm32f4x.cfg".
+        dry_run: If True (default), return the command instead of running it.
+        timeout_seconds: Max time to wait when actually flashing (capped at 600s).
+    """
+    if not dry_run and not os.path.isfile(firmware_path):
+        return {"ok": False, "error": f"firmware not found: {firmware_path}"}
+
+    if tool == "auto":
+        found = _detect_flashers()
+        if not found:
+            return {
+                "ok": False,
+                "error": "no flasher found on PATH (install st-flash, probe-rs or openocd)",
+            }
+        tool = found[0]
+
+    try:
+        cmd = _build_flash_command(tool, firmware_path, address, chip, openocd_target)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if dry_run:
+        return {"ok": True, "dry_run": True, "tool": tool, "command": cmd}
+
+    if shutil.which(tool) is None:
+        return {"ok": False, "error": f"{tool} is not on PATH", "command": cmd}
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=min(max(timeout_seconds, 1.0), 600.0),
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"{tool} timed out", "command": cmd}
+    except OSError as exc:
+        return {"ok": False, "error": str(exc), "command": cmd}
+
+    return {
+        "ok": proc.returncode == 0,
+        "tool": tool,
+        "command": cmd,
+        "returncode": proc.returncode,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+    }
 
 
 def main() -> None:
